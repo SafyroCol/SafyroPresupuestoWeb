@@ -6,7 +6,6 @@ import {
   Pencil,
   Trash2,
   FileDown,
-  FilePlus2,
 } from "lucide-react";
 import ProyectoModalForm from "@/components/Proyectos/ProyectoModalForm";
 import ModalPresupuestoDetalle from "@/components/Presupuestos/ModalPresupuestoDetalle";
@@ -24,6 +23,7 @@ export default function ProyectoListStyled() {
   const pageSize = 10;
   const [total, setTotal] = useState(0);
 
+  // Cargar proyectos
   const cargarProyectos = async () => {
     const res = await getProyectos(page, pageSize, search);
     if (res.data.ok) {
@@ -35,6 +35,7 @@ export default function ProyectoListStyled() {
 
   useEffect(() => {
     cargarProyectos();
+    // eslint-disable-next-line
   }, [page, search]);
 
   useEffect(() => {
@@ -73,7 +74,18 @@ export default function ProyectoListStyled() {
 
   return (
     <>
+      {/* Barra superior con botón crear */}
       <div className="flex flex-col sm:flex-row items-center mb-6 gap-2">
+        <button
+          className="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold mr-3 hover:bg-blue-700 transition"
+          onClick={() => {
+            setProyectoEditando(null); // ← crear modo
+            setModalVisible(true);
+          }}
+        >
+          + Nuevo Proyecto
+        </button>
+
         <input
           type="text"
           placeholder="Buscar proyecto..."
@@ -200,6 +212,7 @@ export default function ProyectoListStyled() {
         </div>
       )}
 
+      {/* Paginación */}
       <div className="flex justify-between items-center mt-8">
         <button
           disabled={page <= 1}
@@ -220,6 +233,7 @@ export default function ProyectoListStyled() {
         </button>
       </div>
 
+      {/* Modal de creación/edición de proyecto */}
       <ProyectoModalForm
         visible={modalVisible}
         proyecto={proyectoEditando}
@@ -227,6 +241,7 @@ export default function ProyectoListStyled() {
         onSuccess={handleExito}
       />
 
+      {/* Modal de presupuesto */}
       {modalPresupuestoVisible && proyectoSeleccionado && (
         <ModalPresupuestoDetalle
           proyectoId={proyectoSeleccionado.id}
