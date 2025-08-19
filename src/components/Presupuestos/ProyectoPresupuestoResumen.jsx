@@ -9,7 +9,7 @@ const rubros = [
   { key: "costoMateriales", keyReal: "costoRealMateriales", label: "Materiales" },
   { key: "costoManoObra", keyReal: "costoRealManoObra", label: "Mano de Obra" },
   { key: "costoDepreciacion", keyReal: "costoRealEquipos", label: "Equipos" },
-  { key: "costoOtros", keyReal: "costoRealServiciosTerceros", label: "Servicios de Terceros" },
+  { key: "costoOtros", keyReal: "costoRealServiciosTerceros", label: "Servicios a Terceros" },
   { key: "costoIndirectos", keyReal: "costoRealCostosIndirectos", label: "Costos Indirectos" },
 ];
 
@@ -27,6 +27,7 @@ export default function ProyectoPresupuestoResumen({
     const rubroObj = rubros.find((r) => r.label === detalleRubro);
     return (
       <DetalleComparativoRubro
+        open={true}
         rubro={rubroObj}
         presupuesto={presupuesto}
         onClose={() => setDetalleRubro(null)}

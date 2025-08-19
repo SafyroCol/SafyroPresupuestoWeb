@@ -4,186 +4,89 @@ import * as XLSX from "xlsx";
 import toast, { Toaster } from "react-hot-toast";
 import api from "@/utils/api";
 import ProyectoPresupuestoResumen from "./ProyectoPresupuestoResumen.jsx";
+import DetalleComparativoRubro from "./DetalleComparativoRubro.jsx";
 import { FileBarChart2, HardHat, Truck, Users, FileCheck } from "lucide-react";
-
-// Rubros válidos y su forma "normalizada"
-const rubrosBackend = {
-  materiales: "Materiales",
-  "mano de obra": "Mano de Obra",
-  equipos: "Equipos",
-  "servicios a terceros": "Servicios a Terceros",
-  "costos indirectos": "Costos Indirectos"
-};
-
-const rubrosIconos = [
-  { key: "materiales", label: "Materiales", icon: FileBarChart2 },
-  { key: "mano de obra", label: "Mano de Obra", icon: Users },
-  { key: "equipos", label: "Equipos", icon: Truck },
-  { key: "servicios a terceros", label: "Servicios a Terceros", icon: FileCheck },
-  { key: "costos indirectos", label: "Costos Indirectos", icon: HardHat }
-];
-
-const requiredCols = [
-  "Código",
-  "Descripción del ítem",
-  "Unidad",
-  "Cantidad",
-  "Valor Unitario",
-  "Valor Total",
-  "Capítulo / Rubro"
-];
-
-const normalizeRubro = (r) =>
-  (r || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-
+import { getEvidenciasPorProyecto } from "@/services/presupuestoService";
+/**
+ * ModalPresupuestoDetalle
+ * --------------------------------------------------------------------------
+ * Muestra el detalle/gestión del presupuesto de un proyecto. Permite:
+ *  - Cargar/validar un Excel de presupuesto.
+ *  - Calcular subtotales por rubro y total general (preview).
+ *  - Importar el presupuesto al backend.
+ *  - Abrir un modal comparativo por rubro para cargar evidencias.
+ *
+ * @param {Object} props
+ * @param {number|string} props.proyectoId  ID del proyecto (requerido).
+ * @param {Function} props.onClose          Cierra el modal contenedor.
+ */
 export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
-  const [presupuesto, setPresupuesto] = useState(null);
-  const [monedas, setMonedas] = useState([]);
-  const [monedaId, setMonedaId] = useState("");
-  const [excelPreview, setExcelPreview] = useState(null);
-  const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
+  // =========================================================================
+  // 1) CONSTANTES DE CONFIGURACIÓN
+  // =========================================================================
 
-  // --- Refrescar presupuesto desde la API ---
-  const refrescarPresupuesto = useCallback(async () => {
-    setLoading(true);
-    try {
-      const p = await api.get(`/api/Presupuesto/por-proyecto/${proyectoId}`);
-      if (p.data.ok) setPresupuesto(p.data.contenido);
-    } catch {
-      toast.error("Error al refrescar presupuesto");
-    } finally {
-      setLoading(false);
-    }
-  }, [proyectoId]);
+  /** Mapeo “clave UI” => “nombre en Excel” */
+  const RUBROS_BACKEND = {
+    materiales: "Materiales",
+    manoDeObra: "Mano de Obra",
+    equipos: "Equipos",
+    serviciosATerceros: "Servicios a Terceros",
+    costosIndirectos: "Costos Indirectos",
+  };
 
-  // Cargar presupuesto y monedas al abrir o cambiar proyectoId
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      try {
-        const [p, m] = await Promise.all([
-          api.get(`/api/Presupuesto/por-proyecto/${proyectoId}`),
-          api.get(`/api/Moneda`),
-        ]);
-        if (p.data.ok) setPresupuesto(p.data.contenido);
-        if (m.data.ok) setMonedas(m.data.contenido);
-      } catch {
-        toast.error("Error al cargar datos");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [proyectoId]);
+  /** Rubros y su ícono para UI */
+  const RUBROS_ICONOS = [
+    { key: "materiales", label: "Materiales", icon: FileBarChart2 },
+    { key: "mano de obra", label: "Mano de Obra", icon: Users },
+    { key: "equipos", label: "Equipos", icon: Truck },
+    { key: "servicios a terceros", label: "Servicios a Terceros", icon: FileCheck },
+    { key: "costos indirectos", label: "Costos Indirectos", icon: HardHat },
+  ];
 
-  // --- Dropzone y parsing del Excel con validación de columnas ---
-  const onDrop = useCallback((acceptedFiles) => {
-    if (!acceptedFiles[0]) return;
-    const file = acceptedFiles[0];
-    setFile(file);
+  /** Columnas requeridas en el Excel */
+  const REQUIRED_COLS = [
+    "Código",
+    "Descripción del ítem",
+    "Unidad",
+    "Cantidad",
+    "Valor Unitario",
+    "Valor Total",
+    "Capítulo / Rubro",
+  ];
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+  // =========================================================================
+  // 2) UTILIDADES
+  // =========================================================================
 
-        // 1. Validación de columnas requeridas
-        const missingCols = requiredCols.filter(
-          (col) => !(col in (json[0] || {}))
-        );
-        if (missingCols.length > 0) {
-          toast.error(`Faltan columnas: ${missingCols.join(", ")}`);
-          setExcelPreview(null);
-          return;
-        }
+  /** Normaliza el nombre del rubro para comparaciones robustas */
+  const normalizeRubro = (r) =>
+    (r || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
 
-        setExcelPreview(json);
-      } catch (err) {
-        toast.error("Archivo Excel inválido");
-        setExcelPreview(null);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  }, []);
+  /** Formateo de moneda en COP */
+  const formatCOP = (num) =>
+    Number(num || 0).toLocaleString("es-CO", { style: "currency", currency: "COP" });
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [],
-      "application/vnd.ms-excel": [],
-    },
-    maxFiles: 1,
-  });
-
-  // --- Subtotal por rubro (robusto y validado) ---
+  /** Suma de un rubro específico en el Excel parseado */
   const getRubroSubtotal = (items, rubroExcel) =>
-    items
+    (Array.isArray(items) ? items : [])
       .filter(
-        (x) =>
-          normalizeRubro(x["Capítulo / Rubro"]) ===
-          normalizeRubro(rubroExcel)
+        (x) => normalizeRubro(x["Capítulo / Rubro"]) === normalizeRubro(rubroExcel)
       )
       .reduce((a, b) => a + (Number(b["Valor Total"]) || 0), 0);
 
-  // --- Total general ---
+  /** Suma total general del Excel parseado */
   const getTotalGeneral = (items) =>
-    items.reduce((a, b) => a + (Number(b["Valor Total"]) || 0), 0);
+    (Array.isArray(items) ? items : []).reduce(
+      (a, b) => a + (Number(b["Valor Total"]) || 0),
+      0
+    );
 
-  // --- Enviar presupuesto importado al backend ---
-  const handleImportar = async (e) => {
-    e.preventDefault();
-    if (!file || !excelPreview || !monedaId) {
-      toast.error("Completa todos los pasos y selecciona un archivo válido");
-      return;
-    }
-    setLoading(true);
-
-    // 2. Rubros mapeados de forma robusta
-    const dto = {
-      proyectoId,
-      nombre: file.name,
-      costoMateriales: getRubroSubtotal(excelPreview, rubrosBackend["materiales"]),
-      costoManoObra: getRubroSubtotal(excelPreview, rubrosBackend["mano de obra"]),
-      costoDepreciacion: getRubroSubtotal(excelPreview, rubrosBackend["equipos"]),
-      costoOtros: getRubroSubtotal(excelPreview, rubrosBackend["servicios a terceros"]),
-      costoIndirectos: getRubroSubtotal(excelPreview, rubrosBackend["costos indirectos"]),
-      monedaId,
-      fechaCreacion: new Date().toISOString(),
-    };
-
-    try {
-      const { data } = await api.post("/api/Presupuesto/importar-excel", {
-        presupuesto: dto,
-        data: excelPreview,
-      });
-      if (data.ok) {
-        toast.success("¡Presupuesto importado con éxito!");
-        setPresupuesto(data.contenido);
-        setExcelPreview(null);
-        setFile(null);
-      } else {
-        toast.error(data.message || "Error en backend");
-      }
-    } catch (err) {
-      const message =
-        err?.response?.data?.message ||
-        (typeof err === "string" ? err : "") ||
-        "Error al importar presupuesto";
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // --- Descargar plantilla Excel ---
+  /** Descarga una plantilla vacía de presupuesto */
   const descargarPlantilla = () => {
     const ws = XLSX.utils.json_to_sheet([
       {
@@ -204,244 +107,441 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
     XLSX.writeFile(wb, "plantilla_presupuesto.xlsx");
   };
 
-  // --- Render del Modal ---
+  // =========================================================================
+  // 3) ESTADO
+  // =========================================================================
+
+  const [presupuesto, setPresupuesto] = useState(null);
+  const [monedas, setMonedas] = useState([]);
+  const [monedaId, setMonedaId] = useState("");
+
+  const [excelPreview, setExcelPreview] = useState(null); // JSON del Excel
+  const [file, setFile] = useState(null);                  // Archivo subido
+
+  const [loading, setLoading] = useState(false);
+
+  /** Estado del modal de detalle por rubro */
+  const [detalleRubro, setDetalleRubro] = useState(null);
+  // detalleRubro: { rubro: "Materiales" | "Mano de Obra" | ... } | null
+
+  // =========================================================================
+  // 4) EFECTOS: CARGA INICIAL
+  // =========================================================================
+
+  const fetchEvidenciasProyecto = async () => {
+  if (!proyectoId) {
+    toast.error("Falta el proyectoId para cargar evidencias.");
+    return;
+  }
+  setLoadingEvidencias(true);
+  try {
+    const { data } = await getEvidenciasPorProyecto(proyectoId);
+    const lista = Array.isArray(data) ? data : (data?.contenido ?? []);
+
+    // (opcional) normaliza por si el backend varía en las claves
+    const normalizadas = lista.map((e) => ({
+      id: e.id ?? e.Id,
+      itemId: e.itemId ?? e.ItemId ?? e.ITEM_ID ?? e.item_id,
+      nombreArchivo: e.nombreArchivo ?? e.NombreArchivo,
+      urlArchivo: e.urlArchivo ?? e.UrlArchivo,
+      tipoArchivo: (e.tipoArchivo ?? e.TipoArchivo ?? "").toLowerCase(),
+      tipoEvidencia: e.tipoEvidencia ?? e.TipoEvidencia, // "Factura" | "Foto"
+    }));
+
+    setEvidenciasProyecto(normalizadas);
+    setEvidenciasLoaded(true);
+  } catch (err) {
+    console.error("Error evidencias proyecto:", err?.response?.data || err);
+    toast.error("No se pudieron cargar las evidencias del proyecto");
+    setEvidenciasProyecto([]);
+    setEvidenciasLoaded(false);
+  } finally {
+    setLoadingEvidencias(false);
+  }
+};
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const [p, m] = await Promise.all([
+          api.get(`/api/Presupuesto/por-proyecto/${proyectoId}`),
+          api.get(`/api/Moneda`),
+        ]);
+
+        if (p?.data?.ok) setPresupuesto(p.data.contenido);
+        if (m?.data?.ok && Array.isArray(m.data.contenido)) setMonedas(m.data.contenido);
+      } catch (err) {
+        console.error("Error al cargar datos iniciales:", err);
+        toast.error("Error al cargar datos");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [proyectoId]);
+
+  // =========================================================================
+  // 5) CALLBACKS / HANDLERS
+  // =========================================================================
+
+  /**
+   * Refresca el presupuesto desde backend (útil tras subir evidencia).
+   */
+  const refrescarPresupuesto = useCallback(async () => {
+    setLoading(true);
+    try {
+      const p = await api.get(`/api/Presupuesto/por-proyecto/${proyectoId}`);
+      if (p?.data?.ok) setPresupuesto(p.data.contenido);
+    } catch (err) {
+      console.error("Error al refrescar presupuesto:", err);
+      toast.error("Error al refrescar presupuesto");
+    } finally {
+      setLoading(false);
+    }
+  }, [proyectoId]);
+
+  /**
+   * Maneja el drop de un archivo Excel y valida columnas requeridas.
+   */
+  const onDrop = useCallback((acceptedFiles) => {
+    if (!acceptedFiles[0]) return;
+
+    const file = acceptedFiles[0];
+    setFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+        // Validación básica
+        if (!Array.isArray(json) || json.length === 0) {
+          toast.error("El archivo no contiene filas válidas.");
+          setExcelPreview(null);
+          return;
+        }
+
+        // Validación de columnas requeridas
+        const missingCols = REQUIRED_COLS.filter((col) => !(col in (json[0] || {})));
+        if (missingCols.length > 0) {
+          toast.error(`Faltan columnas requeridas: ${missingCols.join(", ")}`);
+          setExcelPreview(null);
+          return;
+        }
+
+        setExcelPreview(json);
+      } catch (err) {
+        console.error("Error al parsear Excel:", err);
+        toast.error("Archivo Excel inválido");
+        setExcelPreview(null);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }, []);
+
+  /** Configuración del dropzone */
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [],
+      "application/vnd.ms-excel": [],
+    },
+    maxFiles: 1,
+  });
+
+  /**
+   * Envía el Excel al backend para importar el presupuesto.
+   */
+  const handleImportar = async (e) => {
+    e.preventDefault();
+
+    if (!file || !excelPreview || !monedaId) {
+      toast.error("Completa todos los pasos y selecciona un archivo válido");
+      return;
+    }
+
+    setLoading(true);
+
+    // Construir DTO de importación (cálculos desde preview)
+    const dto = {
+      proyectoId,
+      nombre: file.name,
+      costoMateriales: getRubroSubtotal(excelPreview, RUBROS_BACKEND["materiales"]),
+      costoManoObra: getRubroSubtotal(excelPreview, RUBROS_BACKEND["mano de obra"]),
+      costoDepreciacion: getRubroSubtotal(excelPreview, RUBROS_BACKEND["equipos"]),
+      costoOtros: getRubroSubtotal(excelPreview, RUBROS_BACKEND["servicios a terceros"]),
+      costoIndirectos: getRubroSubtotal(excelPreview, RUBROS_BACKEND["costos indirectos"]),
+      monedaId,
+      fechaCreacion: new Date().toISOString(),
+    };
+
+    try {
+      const { data } = await api.post("/api/Presupuesto/importar-excel", {
+        presupuesto: dto,
+        data: excelPreview,
+      });
+
+
+      if (data?.ok) {
+        toast.success("¡Presupuesto importado con éxito!");
+        setPresupuesto(data.contenido);
+        setExcelPreview(null);
+        setFile(null);
+      } else {
+        toast.error(data?.message || "Error en el backend");
+      }
+    } catch (err) {
+      const message =
+        err?.response?.data?.message ||
+        (typeof err === "string" ? err : "") ||
+        "Error al importar presupuesto";
+      console.error("Error importar:", err);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // =========================================================================
+  // 6) RENDER
+  // =========================================================================
+
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-2">
+    <div className="w-full max-w-3xl mx-auto p-4 sm:p-8">
       <Toaster />
-      <div
-        className="
-          relative bg-white dark:bg-gray-900 p-4 sm:p-8 rounded-2xl shadow-2xl
-          w-full max-w-sm sm:max-w-lg md:max-w-2xl
-          max-h-[90vh] overflow-y-auto
-          transition-all
-        "
-        style={{
-          minHeight: "320px",
-          minWidth: "0",
-        }}
-      >
+
+      {/* -------------------------------------------------------------------
+          Modal de Detalle Comparativo por Rubro
+          - Se renderiza siempre y se controla con la prop "open".
+          - IMPORTANTE: pasamos onCargarEvidencia para refrescar después de subir evidencias.
+        ------------------------------------------------------------------- */}
+      {/* Pasamos onCargarEvidencia para refrescar luego de subir evidencias */}
+      <DetalleComparativoRubro
+        open={!!detalleRubro}
+        rubro={detalleRubro?.rubro}
+        presupuesto={presupuesto}
+        excelPreview={excelPreview}
+        onCargarEvidencia={refrescarPresupuesto}
+        proyectoId={proyectoId}   // <-- aquí
+        onClose={() => setDetalleRubro(null)}
+      />
+
+      {/* Header principal */}
+      <div className="flex items-center justify-between mb-4">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-xl text-lg z-10"
+          className="bg-gray-200 hover:bg-blue-600 hover:text-white transition px-4 py-2 rounded-xl"
         >
-          ×
+          ← Volver
         </button>
-        <h2 className="text-2xl font-bold mb-4 text-center">
-          Presupuesto del Proyecto
-        </h2>
-        {loading ? (
-          <div className="text-center text-gray-500">Cargando...</div>
-        ) : presupuesto ? (
-          <div>
-            <h2 className="text-2xl font-bold mb-6 text-center text-gray-700 dark:text-gray-200">
-              Resumen y Gestión del Presupuesto
-            </h2>
-            <ProyectoPresupuestoResumen
-              presupuesto={presupuesto}
-              onCargarEvidencia={refrescarPresupuesto}
-            />
+        <h2 className="text-2xl font-bold text-right">Presupuesto del Proyecto</h2>
+      </div>
+
+      {/* Estado de carga */}
+      {loading ? (
+        <div className="text-center text-gray-500">Cargando...</div>
+      ) : presupuesto ? (
+        // ---------------------------------------------------------------
+        // Vista: Presupuesto ya guardado -> Resumen + Gestión
+        // ---------------------------------------------------------------
+        <div>
+          <h2 className="text-2xl font-bold mb-6 text-center text-gray-700 dark:text-gray-200">
+            Resumen y Gestión del Presupuesto
+          </h2>
+
+          <ProyectoPresupuestoResumen
+            presupuesto={presupuesto}
+            onCargarEvidencia={refrescarPresupuesto}
+          />
+
+          <button
+            onClick={onClose}
+            className="mt-6 bg-gray-600 hover:bg-gray-800 text-white px-6 py-2 rounded-xl"
+          >
+            Volver
+          </button>
+        </div>
+      ) : (
+        // ---------------------------------------------------------------
+        // Vista: Sin presupuesto -> Configuración e Importación
+        // ---------------------------------------------------------------
+        <>
+          {/* Botón plantilla */}
+          <div className="mb-4">
             <button
-              onClick={onClose}
-              className="mt-6 bg-gray-600 hover:bg-gray-800 text-white px-6 py-2 rounded-xl"
+              className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-blue-600 hover:text-white transition"
+              onClick={descargarPlantilla}
+              type="button"
             >
-              Cerrar
+              Descargar plantilla Excel
             </button>
           </div>
-        ) : (
-          <>
-            <div className="mb-4">
-              <button
-                className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-blue-600 hover:text-white transition"
-                onClick={descargarPlantilla}
-                type="button"
-              >
-                Descargar plantilla Excel
-              </button>
-            </div>
-            <div className="mb-4">
-              <label className="font-semibold">Moneda:</label>
-              <select
-                className="w-full px-3 py-2 rounded-xl border"
-                value={monedaId}
-                onChange={(e) => setMonedaId(e.target.value)}
-              >
-                <option value="">-- Selecciona moneda --</option>
-                {monedas.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nombre} ({m.simbolo})
-                  </option>
-                ))}
-              </select>
-            </div>
-            {/* Dropzone */}
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-xl px-6 py-6 text-center cursor-pointer ${
-                isDragActive ? "bg-blue-100" : "bg-gray-100"
+
+          {/* Selección de moneda */}
+          <div className="mb-4">
+            <label className="font-semibold">Moneda:</label>
+            <select
+              className="w-full px-3 py-2 rounded-xl border"
+              value={monedaId}
+              onChange={(e) => setMonedaId(e.target.value)}
+            >
+              <option value="">-- Selecciona moneda --</option>
+              {monedas.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nombre} ({m.simbolo})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dropzone de archivo */}
+          <div
+            {...getRootProps()}
+            className={`border-2 border-dashed rounded-xl px-6 py-6 text-center cursor-pointer ${isDragActive ? "bg-blue-100" : "bg-gray-100"
               }`}
-            >
-              <input {...getInputProps()} />
-              {file ? (
-                <div>
-                  <b>Archivo:</b> {file.name}
-                  <button
-                    className="ml-4 px-2 py-1 bg-red-400 text-white rounded"
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFile(null);
-                      setExcelPreview(null);
-                    }}
-                  >
-                    Quitar
-                  </button>
-                </div>
-              ) : (
-                <span>
-                  Arrastra y suelta el archivo Excel aquí
-                  <br />o haz click para seleccionar
-                </span>
-              )}
-            </div>
-            {/* Subtotales por Rubro */}
-            {excelPreview && (
-              <div className="mt-6">
-                <div className="font-semibold mb-2">Subtotales por Rubro</div>
-                {/* Tabla para desktop */}
-                <table className="min-w-full text-xs mb-3 border hidden sm:table">
-                  <thead>
-                    <tr>
-                      {rubrosIconos.map((r) => (
-                        <th key={r.key} className="px-2 py-1 border">
-                          <span className="inline-flex items-center gap-2">
-                            <r.icon className="w-4 h-4 inline-block text-blue-500" />
-                            {r.label}
-                          </span>
-                        </th>
-                      ))}
-                      <th className="px-2 py-1 border text-blue-700">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      {rubrosIconos.map((r) => {
-                        const subtotal = getRubroSubtotal(
-                          excelPreview,
-                          rubrosBackend[r.key]
-                        );
-                        return (
-                          <td
-                            key={r.key}
-                            className={`px-2 py-1 border text-right ${
-                              subtotal === 0
-                                ? "bg-yellow-100 text-yellow-700"
-                                : ""
-                            }`}
-                          >
-                            {subtotal.toLocaleString("es-CO", {
-                              style: "currency",
-                              currency: "COP",
-                            })}
-                            {subtotal === 0 && (
-                              <span className="ml-1 text-xs">⚠️</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                      <td className="px-2 py-1 border text-right font-bold text-blue-700">
-                        {getTotalGeneral(excelPreview).toLocaleString("es-CO", {
-                          style: "currency",
-                          currency: "COP",
-                        })}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-                {/* Cards para mobile/tablet */}
-                <div className="sm:hidden flex flex-col gap-3 mb-6">
-                  {rubrosIconos.map((r) => {
-                    const subtotal = getRubroSubtotal(
-                      excelPreview,
-                      rubrosBackend[r.key]
-                    );
-                    const Icon = r.icon;
-                    return (
-                      <div
-                        key={r.key}
-                        className={`flex items-center gap-2 p-3 rounded-xl border shadow bg-gray-50 ${
-                          subtotal === 0 ? "border-yellow-400" : "border-gray-200"
-                        }`}
-                      >
-                        <Icon className="w-6 h-6 text-blue-500" />
-                        <div className="flex-1">
-                          <div className="text-xs text-gray-700">{r.label}</div>
-                          <div className="text-base font-bold">
-                            {subtotal.toLocaleString("es-CO", {
-                              style: "currency",
-                              currency: "COP",
-                            })}{" "}
-                            {subtotal === 0 && (
-                              <span className="ml-1 text-xs text-yellow-600">⚠️</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div className="flex items-center gap-2 p-3 rounded-xl border bg-blue-50 border-blue-300">
-                    <FileBarChart2 className="w-6 h-6 text-blue-700" />
-                    <div className="flex-1">
-                      <div className="text-xs text-blue-800 font-semibold">Total</div>
-                      <div className="text-base font-bold text-blue-800">
-                        {getTotalGeneral(excelPreview).toLocaleString("es-CO", {
-                          style: "currency",
-                          currency: "COP",
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* Preview de filas Excel, cards solo en mobile/tablet */}
-                <div className="sm:hidden flex flex-col gap-2 mb-4">
-                  {excelPreview.slice(0, 5).map((row, i) => (
-                    <div key={i} className="rounded-xl border bg-white p-3 shadow flex flex-col gap-1">
-                      {Object.keys(row).map((col) => (
-                        <div key={col} className="flex justify-between text-xs">
-                          <span className="font-semibold text-gray-600">{col}:</span>
-                          <span className="text-right break-all">{row[col]}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                  <div className="text-xs text-gray-400 p-1 text-end">
-                    Mostrando {Math.min(5, excelPreview.length)} de {excelPreview.length} filas
-                  </div>
-                </div>
-                {/* Alertas */}
-                {Object.values(rubrosBackend).some(
-                  (r) => getRubroSubtotal(excelPreview, r) === 0
-                ) && (
-                  <div className="text-xs text-yellow-600 mb-2">
-                    ⚠️ Hay rubros sin ítems o con subtotal cero. Revisa tu Excel.
-                  </div>
-                )}
+          >
+            <input {...getInputProps()} />
+            {file ? (
+              <div>
+                <b>Archivo:</b> {file.name}
+                <button
+                  className="ml-4 px-2 py-1 bg-red-400 text-white rounded"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFile(null);
+                    setExcelPreview(null);
+                  }}
+                >
+                  Quitar
+                </button>
               </div>
+            ) : (
+              <span>
+                Arrastra y suelta el archivo Excel aquí
+                <br />o haz click para seleccionar
+              </span>
             )}
-            <form
-              onSubmit={handleImportar}
-              className="mt-2 flex flex-col items-center"
+          </div>
+
+          {/* Preview de subtotales por rubro */}
+          {excelPreview && (
+            <div className="mt-6">
+              <div className="font-semibold mb-2">Subtotales por Rubro</div>
+
+              {/* Tabla (desktop) */}
+              <table className="min-w-full text-xs mb-3 border hidden sm:table">
+                <thead>
+                  <tr>
+                    {RUBROS_ICONOS.map((r) => (
+                      <th key={r.key} className="px-2 py-1 border">
+                        <span className="inline-flex items-center gap-2">
+                          <r.icon className="w-4 h-4 inline-block text-blue-500" />
+                          {r.label}
+                        </span>
+                      </th>
+                    ))}
+                    <th className="px-2 py-1 border text-blue-700">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    {RUBROS_ICONOS.map((r) => {
+                      const subtotal = getRubroSubtotal(
+                        excelPreview,
+                        RUBROS_BACKEND[r.key]
+                      );
+                      return (
+                        <td
+                          key={r.key}
+                          className={`px-2 py-1 border text-right ${subtotal === 0 ? "bg-yellow-100 text-yellow-700" : ""
+                            }`}
+                        >
+                          {formatCOP(subtotal)}
+                          {subtotal === 0 && <span className="ml-1 text-xs">⚠️</span>}
+
+                          {/* Botón para abrir detalle comparativo */}
+                          <button
+                            className="ml-2 text-xs underline text-blue-600"
+                            type="button"
+                            onClick={() => setDetalleRubro({ rubro: RUBROS_BACKEND[r.key] })}
+                          >
+                            Comparar
+                          </button>
+                        </td>
+                      );
+                    })}
+                    <td className="px-2 py-1 border text-right font-bold text-blue-700">
+                      {formatCOP(getTotalGeneral(excelPreview))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Cards (mobile/tablet) */}
+              <div className="sm:hidden flex flex-col gap-3 mb-6">
+                {RUBROS_ICONOS.map((r) => {
+                  const subtotal = getRubroSubtotal(excelPreview, RUBROS_BACKEND[r.key]);
+                  const Icon = r.icon;
+                  return (
+                    <div
+                      key={r.key}
+                      className={`flex items-center gap-2 p-3 rounded-xl border shadow bg-gray-50 ${subtotal === 0 ? "border-yellow-400" : "border-gray-200"
+                        }`}
+                    >
+                      <Icon className="w-6 h-6 text-blue-500" />
+                      <div className="flex-1">
+                        <div className="text-xs text-gray-700">{r.label}</div>
+                        <div className="text-base font-bold">
+                          {formatCOP(subtotal)}{" "}
+                          {subtotal === 0 && (
+                            <span className="ml-1 text-xs text-yellow-600">⚠️</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Botón para abrir detalle comparativo */}
+                      <button
+                        className="ml-2 text-xs underline text-blue-600"
+                        type="button"
+                        onClick={() => setDetalleRubro({ rubro: RUBROS_BACKEND[r.key] })}
+                      >
+                        Comparar
+                      </button>
+                    </div>
+                  );
+                })}
+
+                {/* Total (mobile) */}
+                <div className="flex items-center gap-2 p-3 rounded-xl border bg-blue-50 border-blue-300">
+                  <FileBarChart2 className="w-6 h-6 text-blue-700" />
+                  <div className="flex-1">
+                    <div className="text-xs text-blue-800 font-semibold">Total</div>
+                    <div className="text-base font-bold text-blue-800">
+                      {formatCOP(getTotalGeneral(excelPreview))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Aquí puedes añadir alertas, preview de filas, etc. */}
+            </div>
+          )}
+
+          {/* Formulario de importación */}
+          <form onSubmit={handleImportar} className="mt-2 flex flex-col items-center">
+            <button
+              type="submit"
+              className="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition disabled:opacity-60"
+              disabled={loading || !file || !excelPreview || !monedaId}
             >
-              <button
-                type="submit"
-                className="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition disabled:opacity-60"
-                disabled={loading || !file || !excelPreview || !monedaId}
-              >
-                {loading ? "Importando..." : "Importar Presupuesto"}
-              </button>
-            </form>
-          </>
-        )}
-      </div>
+              {loading ? "Importando..." : "Importar Presupuesto"}
+            </button>
+          </form>
+        </>
+      )}
     </div>
   );
 }

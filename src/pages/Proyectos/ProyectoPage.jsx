@@ -37,12 +37,6 @@ export default function ProyectoPage() {
             <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
               Gestión de Proyectos
             </h1>
-            <button
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-              onClick={handleCerrarModal}
-            >
-              Crear Proyecto
-            </button>
           </div>
           <ProyectoListStyled
             onEdit={handleEditar}

@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import React, { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 
 import {
     Home,
@@ -22,11 +22,20 @@ export default function DashboardLayout() {
 
     const { user, authenticated, logout } = useAuth(); // ✅ usa contexto
 
+    const [darkMode, setDarkMode] = useState(() => {
+        // Intenta leer del localStorage
+        return localStorage.getItem("theme") === "dark";
+    });
+
     useEffect(() => {
-        if (!authenticated) {
-            navigate("/login");
+        if (darkMode) {
+            document.documentElement.classList.add("dark");
+            localStorage.setItem("theme", "dark");
+        } else {
+            document.documentElement.classList.remove("dark");
+            localStorage.setItem("theme", "light");
         }
-    }, [authenticated, navigate]);
+    }, [darkMode]);
 
     return (
         <div className="flex h-screen flex-col md:flex-row">
@@ -56,7 +65,7 @@ export default function DashboardLayout() {
             )}
 
             {/* Sidebar escritorio */}
-            <aside className="hidden md:flex w-64 bg-gray-900 text-white flex-col">
+            <aside className="hidden md:flex w-64 bg-gray-900 dark:bg-gray-900 text-white dark:text-gray-100 flex-col">
                 <div className="text-xl font-bold p-4 border-b border-gray-700">Safyro</div>
 
                 {/* 👤 Usuario conectado */}
@@ -67,9 +76,9 @@ export default function DashboardLayout() {
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2 text-sm">
-                    <NavLink to="/dashboard" icon={<Home size={18} />} label="Inicio" location={location} />
-                    <NavLink to="/empresas" icon={<Building2 size={18} />} label="Empresas" location={location} />
-                    <NavLink to="/proyectos" icon={<FolderKanban size={18} />} label="Proyectos" location={location} />
+                    <SidebarNavLink to="/dashboard" icon={<Home size={18} />} label="Inicio" location={location} />
+                    <SidebarNavLink to="/empresas" icon={<Building2 size={18} />} label="Empresas" location={location} />
+                    <SidebarNavLink to="/proyectos" icon={<FolderKanban size={18} />} label="Proyectos" location={location} />
 
                     {/* Submenú Presupuestos */}
                     <div>
@@ -103,7 +112,15 @@ export default function DashboardLayout() {
                         </AnimatePresence>
                     </div>
                 </nav>
-
+                <div className="mt-auto p-4 flex items-center gap-2">
+                    <span className="text-xs text-gray-500 dark:text-gray-300">Modo</span>
+                    <button
+                        className="px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 text-xs font-semibold"
+                        onClick={() => setDarkMode(m => !m)}
+                    >
+                        {darkMode ? "Claro" : "Oscuro"}
+                    </button>
+                </div>
                 <button
                     type="button"
                     className="flex items-center gap-2 p-4 hover:bg-gray-800 border-t border-gray-700"
@@ -114,22 +131,22 @@ export default function DashboardLayout() {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 p-6 overflow-auto bg-gray-50">
+            <main className="flex-1 p-6 overflow-auto bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
                 <Outlet />
             </main>
-        </div>
+        </div> 
     );
 }
 
-function NavLink({ to, icon, label, location }) {
+function SidebarNavLink({ to, icon, label, location }) {
     const isActive = location.pathname.startsWith(to);
     return (
         <Link
             to={to}
-            className={`flex items-center gap-2 hover:text-blue-400 ${isActive ? "text-blue-400 font-medium" : ""
-                }`}
+            className={`flex items-center gap-2 hover:text-blue-400 ${isActive ? "text-blue-400 font-medium" : ""}`}
         >
             {icon} {label}
         </Link>
     );
 }
+

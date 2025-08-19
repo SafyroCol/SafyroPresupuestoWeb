@@ -4,85 +4,156 @@ import { createProyecto, updateProyecto } from "@/services/proyectoService";
 import { getEmpresas, getEmpresaById } from "@/services/empresaService";
 import { useAuth } from "@/context/AuthContext";
 
-// ProyectoModalForm.jsx
+/** Detecta si el usuario tiene rol SuperAdmin, soportando:
+ * - user.rol: "SuperAdmin" o "Admin,SuperAdmin"
+ * - user.roles: ["SuperAdmin", "Otro"]
+ * - user.roles: [{ name: "SuperAdmin" }] / { rol: "SuperAdmin" } / { tipo: "SuperAdmin" } / { role: "SuperAdmin" }
+ * - variantes "SuperAdministrador"
+ */
+function hasSuperAdminRole(u) {
+  if (!u) return false;
+
+  const roles = [];
+
+  // 1) Campo único tipo string (p.ej. "Admin,SuperAdmin")
+  if (typeof u.rol === "string") {
+    roles.push(...u.rol.split(","));
+  }
+  if (typeof u.role === "string") {
+    roles.push(...u.role.split(","));
+  }
+
+  // 2) Arreglo de strings u objetos
+  if (Array.isArray(u.roles)) {
+    for (const r of u.roles) {
+      if (typeof r === "string") roles.push(r);
+      else if (r) roles.push(r.name ?? r.rol ?? r.tipo ?? r.role ?? r.RoleName ?? "");
+    }
+  }
+
+  // 3) (Opcional) otras colecciones que uses en tu app
+  if (Array.isArray(u.perfiles)) {
+    for (const r of u.perfiles) {
+      if (typeof r === "string") roles.push(r);
+      else if (r) roles.push(r.name ?? r.rol ?? r.tipo ?? r.role ?? "");
+    }
+  }
+
+  // Normaliza y busca variantes
+  const norm = roles
+    .filter(Boolean)
+    .map((x) => x.toString().trim().toLowerCase());
+
+  return norm.includes("superadmin") || norm.includes("superadministrador");
+}
+
 export default function ProyectoModalForm({ visible, onClose, onSuccess, proyecto }) {
-  const { usuario } = useAuth();
+  const { user } = useAuth();
+
   const [form, setForm] = useState(proyectoInicial);
   const [empresas, setEmpresas] = useState([]);
   const [empresaUsuario, setEmpresaUsuario] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [cargandoEmpresas, setCargandoEmpresas] = useState(false);
 
-  // Si usuario aún no está disponible, no renderizar nada (o puedes poner un loader)
-  if (!visible || !usuario) return null;
+  const isSuperAdmin = hasSuperAdminRole(user);
 
+  // Cargar empresas (para SuperAdmin) o empresa del usuario (para no-SuperAdmin)
   useEffect(() => {
-    if (!visible || !usuario) return;
-    if (usuario.rol === "SuperAdmin") {
-      getEmpresas().then(res => {
-        if (res.data.ok) setEmpresas(res.data.contenido);
-      });
-    } else if (usuario.empresaId) {
-      getEmpresaById(usuario.empresaId).then(res => {
-        if (res.data.ok) setEmpresaUsuario(res.data.contenido);
-      });
-    }
-  }, [usuario, visible]);
+    if (!visible) return;
+    let cancel = false;
 
+    (async () => {
+      setCargandoEmpresas(true);
+      try {
+        if (isSuperAdmin) {
+          const resEmp = await getEmpresas(1, 1000, ""); // ajusta según tu API
+          if (!cancel && resEmp?.data?.ok) {
+            const raw = resEmp.data.contenido;
+            const items = Array.isArray(raw) ? raw : (raw?.items || raw?.lista || raw?.data || []);
+            setEmpresas(items);
+          }
+        } else if (user?.empresaId) {
+          const resUsr = await getEmpresaById(user.empresaId);
+          if (!cancel && resUsr?.data?.ok) setEmpresaUsuario(resUsr.data.contenido);
+        }
+      } finally {
+        if (!cancel) setCargandoEmpresas(false);
+      }
+    })();
+
+    return () => { cancel = true; };
+  }, [visible, isSuperAdmin, user?.empresaId]);
+
+  // Inicializa / resetea form
   useEffect(() => {
-    if (!visible || !usuario) return;
-    if (proyecto) {
-      setForm(proyecto);
+    if (!visible) return;
+
+    if (proyecto?.id) {
+      setForm({ ...proyecto, empresaId: proyecto.empresaId ?? "" });
     } else {
       setForm({
         ...proyectoInicial,
-        empresaId: usuario.rol === "SuperAdmin" ? "" : usuario.empresaId,
+        empresaId: isSuperAdmin ? "" : (user?.empresaId ?? ""),
       });
     }
-  }, [proyecto, usuario, visible]);
+  }, [visible, proyecto, user, isSuperAdmin]);
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  const handleClose = () => {
+    setForm(proyectoInicial);
+    onClose?.();
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!user) return;
+
     setLoading(true);
+    try {
+      const payload = {
+        ...form,
+        empresaId: isSuperAdmin
+          ? (form.empresaId ? parseInt(form.empresaId, 10) : null)
+          : user.empresaId, // solo mi empresa si no soy SuperAdmin
+      };
 
-    const payload = {
-      ...form,
-      empresaId:
-        usuario.rol === "SuperAdmin"
-          ? parseInt(form.empresaId)
-          : usuario.empresaId,
-    };
+      const res = form.id
+        ? await updateProyecto(form.id, payload)
+        : await createProyecto(payload);
 
-    const res = form.id
-      ? await updateProyecto(form.id, payload)
-      : await createProyecto(payload);
-
-    setLoading(false);
-
-    if (res.data.ok) {
-      if (onSuccess) onSuccess();
-      if (onClose) onClose();
-    } else {
+      if (res?.data?.ok) {
+        onSuccess?.();
+        handleClose();
+      } else {
+        alert(res?.data?.mensaje || "Error al guardar proyecto");
+      }
+    } catch (err) {
+      console.error(err);
       alert("Error al guardar proyecto");
+    } finally {
+      setLoading(false);
     }
   };
 
+  if (!visible) return null;
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-      style={{ animation: "fadeIn .2s" }}
-    >
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
       <div className="relative bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-md">
         <button
           className="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 rounded-xl text-lg"
-          onClick={onClose}
+          onClick={handleClose}
+          type="button"
         >
           ×
         </button>
+
         <h2 className="text-xl font-bold mb-4 text-center">
           {form.id ? "Editar Proyecto" : "Nuevo Proyecto"}
         </h2>
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="block font-semibold mb-1">Nombre del Proyecto</label>
@@ -97,20 +168,22 @@ export default function ProyectoModalForm({ visible, onClose, onSuccess, proyect
               placeholder="Nombre del proyecto"
             />
           </div>
+
           <div>
             <label className="block font-semibold mb-1">Empresa</label>
-            {usuario.rol === "SuperAdmin" ? (
+
+            {isSuperAdmin ? (
               <select
                 name="empresaId"
-                value={form.empresaId || ""}
-                onChange={handleChange}
+                value={(form.empresaId ?? "").toString()}
+                onChange={(e) => setForm((prev) => ({ ...prev, empresaId: e.target.value }))}
                 className="w-full border rounded-xl px-3 py-2"
                 required
-                disabled={loading}
+                disabled={loading || cargandoEmpresas}
               >
-                <option value="">-- Selecciona empresa --</option>
+                <option value="">{cargandoEmpresas ? "Cargando..." : "-- Selecciona empresa --"}</option>
                 {empresas.map((e) => (
-                  <option key={e.id} value={e.id}>
+                  <option key={e.id} value={e.id?.toString?.() ?? e.id}>
                     {e.nombre}
                   </option>
                 ))}
@@ -124,10 +197,15 @@ export default function ProyectoModalForm({ visible, onClose, onSuccess, proyect
               />
             )}
           </div>
+
           <button
             type="submit"
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl w-full mt-2 transition disabled:opacity-60"
-            disabled={loading || (!form.nombre || (!form.empresaId && usuario.rol === "SuperAdmin"))}
+            disabled={
+              loading ||
+              !form.nombre ||
+              (isSuperAdmin && !form.empresaId)
+            }
           >
             {loading ? "Guardando..." : "Guardar Proyecto"}
           </button>
