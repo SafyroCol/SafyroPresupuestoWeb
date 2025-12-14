@@ -32,8 +32,8 @@ export default function DetalleItemPresupuesto({ itemId, onClose }) {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[200px]">
-        <span className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></span>
-        <span className="ml-3 text-gray-600">Cargando...</span>
+        <span className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 dark:border-blue-400"></span>
+        <span className="ml-3 text-gray-600 dark:text-gray-300">Cargando...</span>
       </div>
     );
   }
@@ -47,29 +47,29 @@ export default function DetalleItemPresupuesto({ itemId, onClose }) {
   return (
     <div className="p-6 max-w-lg w-full mx-auto">
       <button
-        className="mb-4 px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm text-gray-700 font-semibold transition"
+        className="mb-4 px-3 py-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded text-sm text-gray-700 dark:text-gray-200 font-semibold transition"
         onClick={onClose}
       >
         ← Volver
       </button>
-      <h2 className="text-2xl font-bold mb-2 text-gray-900 truncate">{item.descripcion || "Ítem sin descripción"}</h2>
-      <div className="text-gray-600 mb-1">
+      <h2 className="text-2xl font-bold mb-2 text-gray-900 dark:text-gray-100 truncate">{item.descripcion || "Ítem sin descripción"}</h2>
+      <div className="text-gray-600 dark:text-gray-300 mb-1">
         <b>Código:</b> <span className="font-mono">{item.codigo}</span>
       </div>
-      <div className="text-gray-600 mb-1">
+      <div className="text-gray-600 dark:text-gray-300 mb-1">
         <b>Unidad:</b> {item.unidad} &nbsp; | &nbsp;
         <b>Cantidad:</b> {item.cantidad}
       </div>
-      <div className="text-gray-600 mb-1">
+      <div className="text-gray-600 dark:text-gray-300 mb-1">
         <b>Presupuestado:</b>{" "}
-        <span className="font-semibold">
+        <span className="font-semibold text-gray-900 dark:text-gray-100">
           {Number(item.valorTotal || 0).toLocaleString("es-CO", {
             style: "currency",
             currency: "COP",
           })}
         </span>
       </div>
-      <div className="text-green-800 mb-4 text-lg font-bold">
+      <div className="text-green-800 dark:text-green-400 mb-4 text-lg font-bold">
         Costo Real:{" "}
         {costoReal
           ? costoReal.toLocaleString("es-CO", {

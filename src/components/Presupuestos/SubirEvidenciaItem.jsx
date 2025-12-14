@@ -35,11 +35,11 @@ export default function SubirEvidenciaItem({ onUpload }) {
 
   return (
     <form className="flex items-center gap-2 mt-4" onSubmit={handleSubmit}>
-      <input type="file" accept="application/pdf,image/*" onChange={handleFile} />
+      <input type="file" accept="application/pdf,image/*" onChange={handleFile} className="text-gray-800 dark:text-gray-200" />
       <input
         type="number"
         min={0}
-        className="border px-2 py-1 rounded"
+        className="border border-gray-300 dark:border-gray-600 px-2 py-1 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400"
         placeholder="Valor soportado"
         value={valorSoportado}
         onChange={(e) => setValorSoportado(e.target.value)}
@@ -47,7 +47,7 @@ export default function SubirEvidenciaItem({ onUpload }) {
       <button
         type="submit"
         disabled={loading}
-        className="px-3 py-1 rounded bg-blue-600 text-white text-xs"
+        className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white text-xs transition disabled:opacity-50"
       >
         {loading ? "Cargando..." : "Subir"}
       </button>

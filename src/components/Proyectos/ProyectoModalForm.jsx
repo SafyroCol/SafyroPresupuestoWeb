@@ -140,29 +140,29 @@ export default function ProyectoModalForm({ visible, onClose, onSuccess, proyect
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
-      <div className="relative bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-md">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="relative bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-md text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700">
         <button
-          className="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 rounded-xl text-lg"
+          className="absolute top-3 right-3 bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded-xl text-lg shadow-sm ring-1 ring-white/20"
           onClick={handleClose}
           type="button"
         >
           ×
         </button>
 
-        <h2 className="text-xl font-bold mb-4 text-center">
+        <h2 className="text-xl font-bold mb-4 text-center text-gray-900 dark:text-gray-100">
           {form.id ? "Editar Proyecto" : "Nuevo Proyecto"}
         </h2>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="block font-semibold mb-1">Nombre del Proyecto</label>
+            <label className="block font-semibold mb-1 text-gray-800 dark:text-gray-200">Nombre del Proyecto</label>
             <input
               type="text"
               name="nombre"
               value={form.nombre || ""}
               onChange={handleChange}
-              className="w-full border rounded-xl px-3 py-2"
+              className="w-full border rounded-xl px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-300 focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 dark:border-gray-700"
               required
               disabled={loading}
               placeholder="Nombre del proyecto"
@@ -170,14 +170,14 @@ export default function ProyectoModalForm({ visible, onClose, onSuccess, proyect
           </div>
 
           <div>
-            <label className="block font-semibold mb-1">Empresa</label>
+            <label className="block font-semibold mb-1 text-gray-800 dark:text-gray-200">Empresa</label>
 
             {isSuperAdmin ? (
               <select
                 name="empresaId"
                 value={(form.empresaId ?? "").toString()}
                 onChange={(e) => setForm((prev) => ({ ...prev, empresaId: e.target.value }))}
-                className="w-full border rounded-xl px-3 py-2"
+                className="w-full border rounded-xl px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-300 focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 dark:border-gray-700"
                 required
                 disabled={loading || cargandoEmpresas}
               >
@@ -193,14 +193,14 @@ export default function ProyectoModalForm({ visible, onClose, onSuccess, proyect
                 type="text"
                 value={empresaUsuario?.nombre || ""}
                 disabled
-                className="w-full border rounded-xl px-3 py-2 bg-gray-100"
+                className="w-full border rounded-xl px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-700"
               />
             )}
           </div>
 
           <button
             type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl w-full mt-2 transition disabled:opacity-60"
+            className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-xl w-full mt-2 transition disabled:opacity-60 shadow-sm"
             disabled={
               loading ||
               !form.nombre ||

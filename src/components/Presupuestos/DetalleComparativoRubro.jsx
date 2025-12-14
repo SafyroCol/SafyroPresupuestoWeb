@@ -17,7 +17,7 @@ function GaleriaEvidencias({ evidencias, tipo, onPreview }) {
 
   if (!lista.length) {
     return (
-      <div className="mb-4 p-3 rounded border bg-gray-50 text-sm text-gray-600">
+      <div className="mb-4 p-3 rounded border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300">
         No hay {tipo === "facturas" ? "facturas" : "fotos"} cargadas para este ítem.
       </div>
     );
@@ -41,7 +41,7 @@ function GaleriaEvidencias({ evidencias, tipo, onPreview }) {
           return (
             <div
               key={id}
-              className="p-3 border rounded bg-white flex items-center gap-3"
+              className="p-3 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 flex items-center gap-3"
               title={nombre}
             >
               <div className="w-10 h-12 flex items-center justify-center border rounded">
@@ -56,7 +56,7 @@ function GaleriaEvidencias({ evidencias, tipo, onPreview }) {
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200"
+                  className="px-3 py-1 text-xs rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 transition"
                 >
                   Abrir en pestaña
                 </a>
@@ -87,7 +87,7 @@ function GaleriaEvidencias({ evidencias, tipo, onPreview }) {
         const mime = ev.tipoArchivo || ev.TipoArchivo || "";
 
         return (
-          <div key={id} className="border rounded bg-white overflow-hidden">
+          <div key={id} className="border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 overflow-hidden">
             <a
               href={url}
               target="_blank"
@@ -422,17 +422,17 @@ export default function DetalleComparativoRubro({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-      <div className="bg-white rounded-xl shadow-lg p-6 max-w-3xl w-full relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl p-6 max-w-3xl w-full relative border border-gray-200 dark:border-gray-700">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <button
-            className="px-4 py-2 bg-gray-200 rounded hover:bg-blue-600 hover:text-white"
+            className="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-blue-600 hover:text-white text-gray-800 dark:text-gray-100 rounded transition ring-1 ring-black/10 dark:ring-white/10"
             onClick={onClose}
           >
             ← Volver al Resumen
           </button>
-          <h2 className="text-xl font-bold">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
             {(typeof rubro === "string" ? rubro : rubro?.label) || "Rubro"}: Detalle Comparativo
           </h2>
         </div>
@@ -444,23 +444,23 @@ export default function DetalleComparativoRubro({
             placeholder="Buscar por descripción o código..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full border rounded px-3 py-2"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
 
         {/* Lista + acordeón */}
         {loading ? (
-          <div className="text-center text-gray-500">Cargando...</div>
+          <div className="text-center text-gray-500 dark:text-gray-300">Cargando...</div>
         ) : (
           <div className="flex flex-col gap-2">
             {visibleItems.length === 0 ? (
-              <div className="text-center text-gray-400">No hay registros para mostrar.</div>
+              <div className="text-center text-gray-400 dark:text-gray-500">No hay registros para mostrar.</div>
             ) : (
               visibleItems.map((it) => {
                 const isOpen = expandedId === it.id;
                 const evidenciasItem = evidenciasByItem[it.id] || [];
                 return (
-                  <div key={it.id} className="bg-gray-50 rounded-lg shadow p-4">
+                  <div key={it.id} className="bg-gray-50 dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-600 p-4">
                     {/* Fila principal */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                       <div className="flex-1">
@@ -528,7 +528,7 @@ export default function DetalleComparativoRubro({
                       <div className="mt-4 border-t pt-4 relative">
                         {/* SOLO botón Cerrar dentro del panel */}
                         <button
-                          className="absolute top-0 right-0 -mt-2 -mr-2 inline-flex items-center gap-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-3 py-1 rounded text-xs"
+                          className="absolute top-0 right-0 -mt-2 -mr-2 inline-flex items-center gap-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 px-3 py-1 rounded text-xs transition"
                           onClick={() => {
                             setExpandedId(null);
                             resetFormulario();
@@ -635,7 +635,7 @@ export default function DetalleComparativoRubro({
                             {/* Botones */}
                             <div className="flex gap-2 justify-end">
                               <button
-                                className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300"
+                                className="px-4 py-2 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 transition"
                                 onClick={() => {
                                   setExpandedId(null);
                                   resetFormulario();
@@ -682,15 +682,15 @@ export default function DetalleComparativoRubro({
             {!expandedId && totalPages > 1 && (
               <div className="flex justify-center items-center gap-4 mt-2">
                 <button
-                  className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                  className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                 >
                   Anterior
                 </button>
-                <span> Página {page} de {totalPages} </span>
+                <span className="text-gray-900 dark:text-gray-100"> Página {page} de {totalPages} </span>
                 <button
-                  className="px-3 py-1 bg-gray-200 rounded disabled:opacity-50"
+                  className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 rounded disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                 >
@@ -712,7 +712,7 @@ export default function DetalleComparativoRubro({
               </div>
               <button
                 onClick={closePreview}
-                className="inline-flex items-center gap-1 px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs"
+                className="inline-flex items-center gap-1 px-3 py-1 rounded bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 text-xs transition"
               >
                 <X size={14} /> Cerrar
               </button>

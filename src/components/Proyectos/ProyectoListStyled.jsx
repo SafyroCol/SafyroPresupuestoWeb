@@ -183,7 +183,7 @@ export default function ProyectoListStyled() {
               {filtered.map((p) => (
                 <div
                   key={p.id}
-                  className="group p-6 border rounded-2xl shadow bg-white dark:bg-gray-900 text-gray-800 dark:text-white hover:shadow-lg transition"
+                  className="group p-6 border border-gray-200 dark:border-gray-700 rounded-2xl shadow bg-white dark:bg-gray-900 text-gray-800 dark:text-white hover:shadow-lg transition"
                 >
                   <h3 className="font-bold text-xl mb-2 group-hover:text-blue-700 dark:group-hover:text-blue-400 transition">
                     {p.nombre}

@@ -310,10 +310,12 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
   // =========================================================================
 
   return (
-    <div className="w-full max-w-3xl mx-auto p-4 sm:p-8">
-      <Toaster />
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 backdrop-blur-sm overflow-y-auto p-4">
+      <div className="w-full max-w-4xl mx-auto my-8 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl">
+        <div className="p-4 sm:p-8">
+          <Toaster />
 
-      {/* -------------------------------------------------------------------
+          {/* -------------------------------------------------------------------
           Modal de Detalle Comparativo por Rubro
           - Se renderiza siempre y se controla con la prop "open".
           - IMPORTANTE: pasamos onCargarEvidencia para refrescar después de subir evidencias.
@@ -333,16 +335,16 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
       <div className="flex items-center justify-between mb-4">
         <button
           onClick={onClose}
-          className="bg-gray-200 hover:bg-blue-600 hover:text-white transition px-4 py-2 rounded-xl"
+          className="bg-gray-200 dark:bg-gray-700 hover:bg-blue-600 hover:text-white text-gray-800 dark:text-gray-100 transition px-4 py-2 rounded-xl ring-1 ring-black/10 dark:ring-white/10"
         >
           ← Volver
         </button>
-        <h2 className="text-2xl font-bold text-right">Presupuesto del Proyecto</h2>
+        <h2 className="text-2xl font-bold text-right text-gray-900 dark:text-gray-100">Presupuesto del Proyecto</h2>
       </div>
 
       {/* Estado de carga */}
       {loading ? (
-        <div className="text-center text-gray-500">Cargando...</div>
+        <div className="text-center text-gray-500 dark:text-gray-300">Cargando...</div>
       ) : presupuesto ? (
         // ---------------------------------------------------------------
         // Vista: Presupuesto ya guardado -> Resumen + Gestión
@@ -359,7 +361,7 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
 
           <button
             onClick={onClose}
-            className="mt-6 bg-gray-600 hover:bg-gray-800 text-white px-6 py-2 rounded-xl"
+            className="mt-6 bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white px-6 py-2 rounded-xl transition"
           >
             Volver
           </button>
@@ -372,7 +374,7 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
           {/* Botón plantilla */}
           <div className="mb-4">
             <button
-              className="px-4 py-2 rounded-xl bg-gray-200 hover:bg-blue-600 hover:text-white transition"
+              className="px-4 py-2 rounded-xl bg-gray-200 dark:bg-gray-700 hover:bg-blue-600 hover:text-white text-gray-800 dark:text-gray-100 transition"
               onClick={descargarPlantilla}
               type="button"
             >
@@ -382,9 +384,9 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
 
           {/* Selección de moneda */}
           <div className="mb-4">
-            <label className="font-semibold">Moneda:</label>
+            <label className="font-semibold text-gray-800 dark:text-gray-200">Moneda:</label>
             <select
-              className="w-full px-3 py-2 rounded-xl border"
+              className="w-full px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
               value={monedaId}
               onChange={(e) => setMonedaId(e.target.value)}
             >
@@ -400,15 +402,15 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
           {/* Dropzone de archivo */}
           <div
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-xl px-6 py-6 text-center cursor-pointer ${isDragActive ? "bg-blue-100" : "bg-gray-100"
-              }`}
+            className={`border-2 border-dashed rounded-xl px-6 py-6 text-center cursor-pointer transition ${isDragActive ? "bg-blue-100 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500" : "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600"
+              } text-gray-700 dark:text-gray-200`}
           >
             <input {...getInputProps()} />
             {file ? (
-              <div>
+              <div className="text-gray-900 dark:text-gray-100">
                 <b>Archivo:</b> {file.name}
                 <button
-                  className="ml-4 px-2 py-1 bg-red-400 text-white rounded"
+                  className="ml-4 px-2 py-1 bg-red-500 hover:bg-red-600 text-white rounded transition"
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -430,21 +432,21 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
           {/* Preview de subtotales por rubro */}
           {excelPreview && (
             <div className="mt-6">
-              <div className="font-semibold mb-2">Subtotales por Rubro</div>
+              <div className="font-semibold mb-2 text-gray-900 dark:text-gray-100">Subtotales por Rubro</div>
 
               {/* Tabla (desktop) */}
-              <table className="min-w-full text-xs mb-3 border hidden sm:table">
+              <table className="min-w-full text-xs mb-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hidden sm:table">
                 <thead>
                   <tr>
                     {RUBROS_ICONOS.map((r) => (
-                      <th key={r.key} className="px-2 py-1 border">
+                      <th key={r.key} className="px-2 py-1 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                         <span className="inline-flex items-center gap-2">
-                          <r.icon className="w-4 h-4 inline-block text-blue-500" />
+                          <r.icon className="w-4 h-4 inline-block text-blue-500 dark:text-blue-400" />
                           {r.label}
                         </span>
                       </th>
                     ))}
-                    <th className="px-2 py-1 border text-blue-700">Total</th>
+                    <th className="px-2 py-1 border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-blue-700 dark:text-blue-400">Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -474,7 +476,7 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
                         </td>
                       );
                     })}
-                    <td className="px-2 py-1 border text-right font-bold text-blue-700">
+                    <td className="px-2 py-1 border border-gray-300 dark:border-gray-600 text-right font-bold text-blue-700 dark:text-blue-400 text-gray-900 dark:text-gray-100">
                       {formatCOP(getTotalGeneral(excelPreview))}
                     </td>
                   </tr>
@@ -516,11 +518,11 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
                 })}
 
                 {/* Total (mobile) */}
-                <div className="flex items-center gap-2 p-3 rounded-xl border bg-blue-50 border-blue-300">
-                  <FileBarChart2 className="w-6 h-6 text-blue-700" />
+                <div className="flex items-center gap-2 p-3 rounded-xl border bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600">
+                  <FileBarChart2 className="w-6 h-6 text-blue-700 dark:text-blue-400" />
                   <div className="flex-1">
-                    <div className="text-xs text-blue-800 font-semibold">Total</div>
-                    <div className="text-base font-bold text-blue-800">
+                    <div className="text-xs text-blue-800 dark:text-blue-300 font-semibold">Total</div>
+                    <div className="text-base font-bold text-blue-800 dark:text-blue-200">
                       {formatCOP(getTotalGeneral(excelPreview))}
                     </div>
                   </div>
@@ -534,7 +536,7 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
           <form onSubmit={handleImportar} className="mt-2 flex flex-col items-center">
             <button
               type="submit"
-              className="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold transition disabled:opacity-60"
+              className="w-full px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-semibold transition disabled:opacity-60 shadow-sm"
               disabled={loading || !file || !excelPreview || !monedaId}
             >
               {loading ? "Importando..." : "Importar Presupuesto"}
@@ -542,6 +544,8 @@ export default function ModalPresupuestoDetalle({ proyectoId, onClose }) {
           </form>
         </>
       )}
+        </div>
+      </div>
     </div>
   );
 }

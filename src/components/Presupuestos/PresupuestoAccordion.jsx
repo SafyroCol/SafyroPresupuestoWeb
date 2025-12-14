@@ -35,10 +35,10 @@ export default function PresupuestoAccordion() {
         return (
           <div
             key={rubro}
-            className="border-b border-gray-300 mb-2 bg-white rounded-2xl shadow"
+            className="border-b border-gray-300 dark:border-gray-600 mb-2 bg-white dark:bg-gray-800 rounded-2xl shadow"
           >
             <button
-              className="w-full flex justify-between items-center py-4 px-6 text-lg font-bold text-left focus:outline-none"
+              className="w-full flex justify-between items-center py-4 px-6 text-lg font-bold text-left text-gray-900 dark:text-gray-100 focus:outline-none"
               onClick={() => setOpen(open === idx ? null : idx)}
             >
               <span>{rubro}</span>
@@ -51,11 +51,11 @@ export default function PresupuestoAccordion() {
                     {items.map((item, i) => (
                       <div
                         key={i}
-                        className="bg-gray-100 rounded-xl p-4 flex flex-col gap-2"
+                        className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 flex flex-col gap-2 border border-gray-200 dark:border-gray-600"
                       >
                         {cols.map((col) => (
-                          <div key={col.key} className="flex justify-between">
-                            <span className="font-semibold">{col.label}:</span>
+                          <div key={col.key} className="flex justify-between text-gray-800 dark:text-gray-200">
+                            <span className="font-semibold text-gray-900 dark:text-gray-100">{col.label}:</span>
                             <span>
                               {typeof item[col.key] === "number"
                                 ? item[col.key].toLocaleString("es-CO", {
@@ -70,13 +70,13 @@ export default function PresupuestoAccordion() {
                     ))}
                   </div>
                 ) : (
-                  <table className="min-w-full table-auto text-sm border mt-2 rounded-xl">
+                  <table className="min-w-full table-auto text-sm border border-gray-300 dark:border-gray-600 mt-2 rounded-xl">
                     <thead>
                       <tr>
                         {cols.map((col) => (
                           <th
                             key={col.key}
-                            className="px-3 py-2 text-left bg-gray-200"
+                            className="px-3 py-2 text-left bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                           >
                             {col.label}
                           </th>
@@ -85,7 +85,7 @@ export default function PresupuestoAccordion() {
                     </thead>
                     <tbody>
                       {items.map((item, i) => (
-                        <tr key={i} className="bg-white hover:bg-gray-50">
+                        <tr key={i} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200">
                           {cols.map((col) => (
                             <td key={col.key} className="px-3 py-2">
                               {typeof item[col.key] === "number"
